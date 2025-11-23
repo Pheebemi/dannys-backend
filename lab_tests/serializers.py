@@ -59,13 +59,14 @@ class LabTestSerializer(serializers.ModelSerializer):
 
 class LabTestCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating a lab test"""
+    price = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, write_only=True, source='cost')
     
     class Meta:
         model = LabTest
         fields = (
             'test_name', 'category', 'patient', 'ordered_by', 'priority',
             'test_code', 'description', 'instructions', 'scheduled_date',
-            'normal_range', 'notes', 'cost'
+            'normal_range', 'notes', 'cost', 'price'
         )
 
 

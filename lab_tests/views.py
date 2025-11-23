@@ -208,10 +208,11 @@ def lab_test_category_detail_view(request, pk):
     DELETE /api/lab-tests/categories/<id>/
     """
     # Only admin can modify categories
-    if request.user.role != 'admin' and not request.user.is_superuser:
+    # Allow admin and lab_technician to view stats
+    if request.user.role not in ['admin', 'lab_technician'] and not request.user.is_superuser:
         return Response({
             'success': False,
-            'message': 'Permission denied. Admin access required.'
+            'message': 'Permission denied. Admin or Lab Technician access required.'
         }, status=status.HTTP_403_FORBIDDEN)
     
     try:
@@ -321,10 +322,150 @@ def lab_test_stats_view(request):
     Get lab test statistics
     GET /api/lab-tests/stats/
     """
-    if request.user.role != 'admin' and not request.user.is_superuser:
+    # Allow admin and lab_technician to view stats
+    if request.user.role not in ['admin', 'lab_technician'] and not request.user.is_superuser:
         return Response({
             'success': False,
-            'message': 'Permission denied. Admin access required.'
+            'message': 'Permission denied. Admin or Lab Technician access required.'
+        }, status=status.HTTP_403_FORBIDDEN)
+    
+    # Overall statistics
+    total_tests = LabTest.objects.count()
+    pending_tests = LabTest.objects.filter(status='pending').count()
+    in_progress_tests = LabTest.objects.filter(status='in_progress').count()
+    completed_tests = LabTest.objects.filter(status='completed').count()
+    
+    # Status breakdown
+    tests_by_status = LabTest.objects.values('status').annotate(count=Count('status'))
+    status_stats = {}
+    for item in tests_by_status:
+        status_stats[item['status']] = {
+            'name': dict(LabTest.STATUS_CHOICES).get(item['status'], item['status']),
+            'count': item['count']
+        }
+    
+    # Priority breakdown
+    tests_by_priority = LabTest.objects.values('priority').annotate(count=Count('priority'))
+    priority_stats = {}
+    for item in tests_by_priority:
+        priority_stats[item['priority']] = {
+            'name': dict(LabTest.PRIORITY_CHOICES).get(item['priority'], item['priority']),
+            'count': item['count']
+        }
+    
+    # Category breakdown
+    tests_by_category = LabTest.objects.values('category__name').annotate(count=Count('category'))
+    category_stats = {}
+    for item in tests_by_category:
+        if item['category__name']:
+            category_stats[item['category__name']] = {
+                'name': item['category__name'],
+                'count': item['count']
+            }
+    
+    return Response({
+        'success': True,
+        'stats': {
+            'total_tests': total_tests,
+            'pending_tests': pending_tests,
+            'in_progress_tests': in_progress_tests,
+            'completed_tests': completed_tests,
+            'by_status': status_stats,
+            'by_priority': priority_stats,
+            'by_category': category_stats,
+        }
+    }, status=status.HTTP_200_OK)
+
+
+    return Response({
+        'success': False,
+        'errors': serializer.errors
+    }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def lab_test_result_create_view(request, test_id):
+    """
+    Create a test result for a lab test
+    POST /api/lab-tests/<test_id>/results/
+    """
+    try:
+        test = LabTest.objects.get(pk=test_id)
+    except LabTest.DoesNotExist:
+        return Response({
+            'success': False,
+            'message': 'Lab test not found'
+        }, status=status.HTTP_404_NOT_FOUND)
+    
+    data = request.data.copy()
+    data['test'] = test_id
+    serializer = LabTestResultSerializer(data=data)
+    
+    if serializer.is_valid():
+        serializer.save()
+        return Response({
+            'success': True,
+            'message': 'Test result added successfully',
+            'result': serializer.data
+        }, status=status.HTTP_201_CREATED)
+    
+    return Response({
+        'success': False,
+        'errors': serializer.errors
+    }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['PUT', 'PATCH', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def lab_test_result_detail_view(request, test_id, result_id):
+    """
+    Update or delete a test result
+    PUT/PATCH /api/lab-tests/<test_id>/results/<result_id>/
+    DELETE /api/lab-tests/<test_id>/results/<result_id>/
+    """
+    try:
+        result = LabTestResult.objects.get(pk=result_id, test_id=test_id)
+    except LabTestResult.DoesNotExist:
+        return Response({
+            'success': False,
+            'message': 'Test result not found'
+        }, status=status.HTTP_404_NOT_FOUND)
+    
+    if request.method == 'DELETE':
+        result.delete()
+        return Response({
+            'success': True,
+            'message': 'Test result deleted successfully'
+        }, status=status.HTTP_200_OK)
+    
+    serializer = LabTestResultSerializer(result, data=request.data, partial=True)
+    if serializer.is_valid():
+        serializer.save()
+        return Response({
+            'success': True,
+            'message': 'Test result updated successfully',
+            'result': serializer.data
+        }, status=status.HTTP_200_OK)
+    
+    return Response({
+        'success': False,
+        'errors': serializer.errors
+    }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def lab_test_stats_view(request):
+    """
+    Get lab test statistics
+    GET /api/lab-tests/stats/
+    """
+    # Allow admin and lab_technician to view stats
+    if request.user.role not in ['admin', 'lab_technician'] and not request.user.is_superuser:
+        return Response({
+            'success': False,
+            'message': 'Permission denied. Admin or Lab Technician access required.'
         }, status=status.HTTP_403_FORBIDDEN)
     
     # Overall statistics
