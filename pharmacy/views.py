@@ -3,8 +3,11 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.utils import timezone
-from .models import Prescription, MedicationInventory
-from .serializers import PrescriptionSerializer, MedicationInventorySerializer
+from .models import Prescription, PrescriptionItem, MedicationInventory
+from .serializers import (
+    PrescriptionSerializer, PrescriptionCreateSerializer,
+    PrescriptionItemSerializer, MedicationInventorySerializer,
+)
 
 PHARMACY_ROLES = ['pharmacist', 'admin']
 
@@ -18,7 +21,9 @@ def is_pharmacy_staff(user):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def prescription_list_view(request):
-    prescriptions = Prescription.objects.select_related('patient', 'prescribed_by', 'dispensed_by').all()
+    prescriptions = Prescription.objects.select_related(
+        'patient', 'prescribed_by', 'dispensed_by'
+    ).prefetch_related('items').all()
 
     status_filter = request.query_params.get('status')
     if status_filter:
@@ -32,10 +37,10 @@ def prescription_list_view(request):
     if search:
         from django.db.models import Q
         prescriptions = prescriptions.filter(
-            Q(medication_name__icontains=search) |
             Q(patient__first_name__icontains=search) |
-            Q(patient__last_name__icontains=search)
-        )
+            Q(patient__last_name__icontains=search) |
+            Q(items__medication_name__icontains=search)
+        ).distinct()
 
     page_number = int(request.query_params.get('page', 1))
     page_size = int(request.query_params.get('page_size', 20))
@@ -60,12 +65,12 @@ def prescription_list_view(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def prescription_create_view(request):
-    serializer = PrescriptionSerializer(data=request.data)
+    serializer = PrescriptionCreateSerializer(data=request.data)
     if serializer.is_valid():
         prescription = serializer.save()
         return Response({
             'success': True,
-            'message': 'Prescription created successfully',
+            'message': 'Prescription sent to pharmacy',
             'prescription': PrescriptionSerializer(prescription).data
         }, status=status.HTTP_201_CREATED)
     return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
@@ -75,7 +80,7 @@ def prescription_create_view(request):
 @permission_classes([IsAuthenticated])
 def prescription_detail_view(request, pk):
     try:
-        prescription = Prescription.objects.get(pk=pk)
+        prescription = Prescription.objects.prefetch_related('items').get(pk=pk)
         return Response({'success': True, 'prescription': PrescriptionSerializer(prescription).data})
     except Prescription.DoesNotExist:
         return Response({'success': False, 'message': 'Prescription not found'}, status=status.HTTP_404_NOT_FOUND)
@@ -101,7 +106,7 @@ def prescription_update_view(request, pk):
         return Response({
             'success': True,
             'message': 'Prescription updated successfully',
-            'prescription': serializer.data
+            'prescription': PrescriptionSerializer(prescription).data
         })
     return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -200,11 +205,7 @@ def inventory_update_view(request, pk):
     serializer = MedicationInventorySerializer(item, data=request.data, partial=True)
     if serializer.is_valid():
         serializer.save()
-        return Response({
-            'success': True,
-            'message': 'Inventory updated successfully',
-            'item': serializer.data
-        })
+        return Response({'success': True, 'message': 'Inventory updated successfully', 'item': serializer.data})
     return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
 

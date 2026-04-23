@@ -1,5 +1,14 @@
 from rest_framework import serializers
-from .models import Prescription, MedicationInventory
+from .models import Prescription, PrescriptionItem, MedicationInventory
+
+
+class PrescriptionItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PrescriptionItem
+        fields = [
+            'id', 'medication_name', 'dosage', 'frequency',
+            'duration_days', 'quantity', 'refills_remaining', 'notes',
+        ]
 
 
 class PrescriptionSerializer(serializers.ModelSerializer):
@@ -7,14 +16,14 @@ class PrescriptionSerializer(serializers.ModelSerializer):
     patient_phone = serializers.CharField(source='patient.phone_number', read_only=True)
     prescribed_by_name = serializers.SerializerMethodField()
     dispensed_by_name = serializers.SerializerMethodField()
+    items = PrescriptionItemSerializer(many=True, read_only=True)
 
     class Meta:
         model = Prescription
         fields = [
             'id', 'patient', 'patient_name', 'patient_phone',
             'prescribed_by', 'prescribed_by_name',
-            'medication_name', 'dosage', 'frequency', 'duration_days',
-            'quantity', 'refills_remaining', 'status', 'notes',
+            'status', 'notes', 'items',
             'dispensed_by', 'dispensed_by_name', 'dispensed_at',
             'created_at', 'updated_at',
         ]
@@ -29,6 +38,26 @@ class PrescriptionSerializer(serializers.ModelSerializer):
         if obj.dispensed_by:
             return obj.dispensed_by.full_name or obj.dispensed_by.username
         return None
+
+
+class PrescriptionCreateSerializer(serializers.ModelSerializer):
+    items = PrescriptionItemSerializer(many=True)
+
+    class Meta:
+        model = Prescription
+        fields = ['patient', 'prescribed_by', 'notes', 'items']
+
+    def validate_items(self, value):
+        if not value:
+            raise serializers.ValidationError("A prescription must have at least one medication.")
+        return value
+
+    def create(self, validated_data):
+        items_data = validated_data.pop('items')
+        prescription = Prescription.objects.create(**validated_data)
+        for item in items_data:
+            PrescriptionItem.objects.create(prescription=prescription, **item)
+        return prescription
 
 
 class MedicationInventorySerializer(serializers.ModelSerializer):
