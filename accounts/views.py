@@ -156,13 +156,16 @@ def staff_list_view(request):
     GET /api/auth/staff/
     Query params: role, search, page, page_size
     """
-    # Check if user is admin
+    # Admins see full staff list; other roles may fetch a specific role (e.g. doctors)
+    NON_ADMIN_ALLOWED = ['receptionist', 'nurse', 'doctor', 'pharmacist', 'lab_technician']
+    role_param = request.query_params.get('role')
     if request.user.role != 'admin' and not request.user.is_superuser:
-        return Response({
-            'success': False,
-            'message': 'Permission denied. Admin access required.'
-        }, status=status.HTTP_403_FORBIDDEN)
-    
+        if request.user.role not in NON_ADMIN_ALLOWED or not role_param:
+            return Response({
+                'success': False,
+                'message': 'Permission denied.'
+            }, status=status.HTTP_403_FORBIDDEN)
+
     role = request.query_params.get('role')
     search = request.query_params.get('search', '')
     page = int(request.query_params.get('page', 1))

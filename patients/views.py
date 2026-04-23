@@ -3,6 +3,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.db.models import Q
+from django.db import IntegrityError
 from .models import Patient
 from .serializers import PatientSerializer, PatientCreateSerializer
 
@@ -84,12 +85,24 @@ def patient_create_view(request):
     serializer = PatientCreateSerializer(data=request.data)
     
     if serializer.is_valid():
-        patient = serializer.save(created_by=request.user)
-        return Response({
-            'success': True,
-            'message': 'Patient created successfully',
-            'patient': PatientSerializer(patient).data
-        }, status=status.HTTP_201_CREATED)
+        try:
+            patient = serializer.save(created_by=request.user)
+            return Response({
+                'success': True,
+                'message': 'Patient created successfully',
+                'patient': PatientSerializer(patient).data
+            }, status=status.HTTP_201_CREATED)
+        except IntegrityError as e:
+            if 'email' in str(e):
+                return Response({
+                    'success': False,
+                    'message': 'A patient with this email already exists.',
+                    'errors': {'email': ['A patient with this email already exists.']}
+                }, status=status.HTTP_400_BAD_REQUEST)
+            return Response({
+                'success': False,
+                'message': 'Failed to create patient due to a data conflict.',
+            }, status=status.HTTP_400_BAD_REQUEST)
     
     # Return detailed error messages
     error_messages = []
