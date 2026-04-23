@@ -213,10 +213,11 @@ def billing_stats_view(request):
     Get billing statistics
     GET /api/billing/stats/
     """
-    if request.user.role != 'admin' and not request.user.is_superuser:
+    ALLOWED_ROLES = ['admin', 'receptionist']
+    if request.user.role not in ALLOWED_ROLES and not request.user.is_superuser:
         return Response({
             'success': False,
-            'message': 'Permission denied. Admin access required.'
+            'message': 'Permission denied.'
         }, status=status.HTTP_403_FORBIDDEN)
     
     # Overall statistics
@@ -267,3 +268,37 @@ def billing_stats_view(request):
         }
     }, status=status.HTTP_200_OK)
 
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def service_create_view(request):
+    serializer = ServiceSerializer(data=request.data)
+    if serializer.is_valid():
+        service = serializer.save()
+        return Response({'success': True, 'message': 'Service created', 'service': ServiceSerializer(service).data}, status=status.HTTP_201_CREATED)
+    return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['PUT', 'PATCH'])
+@permission_classes([IsAuthenticated])
+def service_update_view(request, pk):
+    try:
+        service = Service.objects.get(pk=pk)
+    except Service.DoesNotExist:
+        return Response({'success': False, 'message': 'Service not found'}, status=status.HTTP_404_NOT_FOUND)
+    serializer = ServiceSerializer(service, data=request.data, partial=True)
+    if serializer.is_valid():
+        serializer.save()
+        return Response({'success': True, 'message': 'Service updated', 'service': serializer.data})
+    return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def service_delete_view(request, pk):
+    try:
+        Service.objects.get(pk=pk).delete()
+        return Response({'success': True, 'message': 'Service deleted'})
+    except Service.DoesNotExist:
+        return Response({'success': False, 'message': 'Service not found'}, status=status.HTTP_404_NOT_FOUND)
