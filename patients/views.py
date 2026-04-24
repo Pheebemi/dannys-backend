@@ -36,16 +36,27 @@ def patient_list_view(request):
     elif request.query_params.get('assigned_doctor_id'):
         patients = patients.filter(assigned_doctor_id=request.query_params.get('assigned_doctor_id'))
     
-    # Search filter
+    # Search filter (name, email, phone, or patient code)
     search_query = request.query_params.get('search')
     if search_query:
         patients = patients.filter(
             Q(first_name__icontains=search_query) |
             Q(last_name__icontains=search_query) |
             Q(email__icontains=search_query) |
-            Q(phone_number__icontains=search_query)
+            Q(phone_number__icontains=search_query) |
+            Q(patient_code__icontains=search_query)
         )
-    
+
+    # Patient type filter
+    patient_type = request.query_params.get('patient_type')
+    if patient_type:
+        patients = patients.filter(patient_type=patient_type)
+
+    # HMO filter
+    hmo_id = request.query_params.get('hmo_id')
+    if hmo_id:
+        patients = patients.filter(hmo_id=hmo_id)
+
     # Gender filter
     gender = request.query_params.get('gender')
     if gender:
