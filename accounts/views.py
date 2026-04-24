@@ -171,8 +171,8 @@ def staff_list_view(request):
     page = int(request.query_params.get('page', 1))
     page_size = int(request.query_params.get('page_size', 20))
     
-    queryset = User.objects.all().order_by('-created_at')
-    
+    queryset = User.objects.exclude(role='patient').order_by('-created_at')
+
     # Filter by role
     if role:
         queryset = queryset.filter(role=role)
@@ -389,3 +389,83 @@ def staff_create_view(request):
         'errors': serializer.errors,
         'error': '; '.join(error_messages) if error_messages else 'Invalid data'
     }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def patient_register_view(request):
+    """
+    Patient self-registration.
+    POST /api/auth/patient/register/
+    Creates a User (role=patient) + linked Patient record in one transaction.
+    Returns JWT tokens so the patient is immediately logged in.
+    """
+    from django.db import transaction
+    from patients.models import Patient
+
+    data = request.data
+    required = ['first_name', 'last_name', 'email', 'password', 'date_of_birth', 'gender', 'phone_number']
+    missing = [f for f in required if not data.get(f)]
+    if missing:
+        return Response({
+            'success': False,
+            'message': f"Missing required fields: {', '.join(missing)}"
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    email = data['email'].lower().strip()
+
+    if User.objects.filter(email=email).exists():
+        return Response({'success': False, 'message': 'A portal account with this email already exists. Please log in instead.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        with transaction.atomic():
+            user = User.objects.create_user(
+                username=email,
+                email=email,
+                password=data['password'],
+                first_name=data['first_name'],
+                last_name=data['last_name'],
+                role='patient',
+                phone_number=data.get('phone_number', ''),
+            )
+
+            # Check if a patient record already exists with this email (created by staff)
+            existing_patient = Patient.objects.filter(email=email, user__isnull=True).first()
+            if existing_patient:
+                # Link the existing record to the new portal account
+                existing_patient.user = user
+                existing_patient.save(update_fields=['user'])
+                patient = existing_patient
+                message = 'Account created and linked to your existing patient record. Welcome!'
+            else:
+                # No existing record — create a fresh one
+                patient = Patient.objects.create(
+                    user=user,
+                    first_name=data['first_name'],
+                    last_name=data['last_name'],
+                    email=email,
+                    phone_number=data['phone_number'],
+                    date_of_birth=data['date_of_birth'],
+                    gender=data['gender'],
+                    blood_type=data.get('blood_type'),
+                    address=data.get('address', ''),
+                    city=data.get('city', ''),
+                    state=data.get('state', ''),
+                    country=data.get('country', 'Nigeria'),
+                    created_by=user,
+                )
+                message = 'Registration successful. Welcome to Danny\'s Wellness Clinic.'
+    except Exception as e:
+        return Response({'success': False, 'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    refresh = RefreshToken.for_user(user)
+    return Response({
+        'success': True,
+        'message': message,
+        'user': UserSerializer(user).data,
+        'patient_id': patient.id,
+        'tokens': {
+            'refresh': str(refresh),
+            'access': str(refresh.access_token),
+        }
+    }, status=status.HTTP_201_CREATED)

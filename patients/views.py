@@ -4,8 +4,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.db.models import Q
 from django.db import IntegrityError
-from .models import Patient
-from .serializers import PatientSerializer, PatientCreateSerializer
+from .models import Patient, HMO
+from .serializers import PatientSerializer, PatientCreateSerializer, HMOSerializer
 
 
 @api_view(['GET'])
@@ -24,7 +24,11 @@ def patient_list_view(request):
         page_size (int): Number of items per page
     """
     patients = Patient.objects.all().order_by('-created_at')
-    
+
+    # Patients can only see their own record
+    if request.user.role == 'patient':
+        patients = patients.filter(user=request.user)
+
     # If user is a doctor and my_patients is true, filter by assigned doctor
     if request.user.role == 'doctor' and request.query_params.get('my_patients', '').lower() == 'true':
         patients = patients.filter(assigned_doctor=request.user)
@@ -223,3 +227,72 @@ def patient_stats_view(request):
         }
     }, status=status.HTTP_200_OK)
 
+
+
+# ─── HMO Views ────────────────────────────────────────────────────────────────
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def hmo_list_view(request):
+    from django.db.models import Count
+    hmos = HMO.objects.annotate(patient_count=Count('patients')).order_by('name')
+    data = HMOSerializer(hmos, many=True).data
+    # Attach patient_count to each item
+    for item, hmo in zip(data, hmos):
+        item['patient_count'] = hmo.patient_count
+    return Response({'success': True, 'hmos': data})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def hmo_create_view(request):
+    if request.user.role not in ['admin'] and not request.user.is_superuser:
+        return Response({'success': False, 'message': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+    serializer = HMOSerializer(data=request.data)
+    if serializer.is_valid():
+        hmo = serializer.save()
+        return Response({'success': True, 'message': 'HMO created', 'hmo': HMOSerializer(hmo).data}, status=status.HTTP_201_CREATED)
+    return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['PUT', 'PATCH'])
+@permission_classes([IsAuthenticated])
+def hmo_update_view(request, pk):
+    if request.user.role not in ['admin'] and not request.user.is_superuser:
+        return Response({'success': False, 'message': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+    try:
+        hmo = HMO.objects.get(pk=pk)
+    except HMO.DoesNotExist:
+        return Response({'success': False, 'message': 'HMO not found'}, status=status.HTTP_404_NOT_FOUND)
+    serializer = HMOSerializer(hmo, data=request.data, partial=True)
+    if serializer.is_valid():
+        serializer.save()
+        return Response({'success': True, 'message': 'HMO updated', 'hmo': serializer.data})
+    return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def hmo_delete_view(request, pk):
+    if request.user.role not in ['admin'] and not request.user.is_superuser:
+        return Response({'success': False, 'message': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+    try:
+        HMO.objects.get(pk=pk).delete()
+        return Response({'success': True, 'message': 'HMO deleted'})
+    except HMO.DoesNotExist:
+        return Response({'success': False, 'message': 'HMO not found'}, status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def patient_portal_status_view(request, pk):
+    """Check if a patient has a portal account linked."""
+    try:
+        patient = Patient.objects.get(pk=pk)
+        return Response({
+            'success': True,
+            'has_portal_account': patient.user is not None,
+            'portal_email': patient.user.email if patient.user else None,
+        })
+    except Patient.DoesNotExist:
+        return Response({'success': False, 'message': 'Patient not found'}, status=status.HTTP_404_NOT_FOUND)

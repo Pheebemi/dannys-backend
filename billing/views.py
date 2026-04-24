@@ -302,3 +302,95 @@ def service_delete_view(request, pk):
         return Response({'success': True, 'message': 'Service deleted'})
     except Service.DoesNotExist:
         return Response({'success': False, 'message': 'Service not found'}, status=status.HTTP_404_NOT_FOUND)
+
+
+# ─── Tariff Views ─────────────────────────────────────────────────────────────
+
+from .models import ServiceTariff
+from .serializers import ServiceTariffSerializer
+
+TARIFF_ALLOWED = ['admin', 'receptionist']
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def tariff_list_view(request):
+    tariffs = ServiceTariff.objects.select_related('service', 'hmo').all()
+    service_id = request.query_params.get('service_id')
+    if service_id:
+        tariffs = tariffs.filter(service_id=service_id)
+    patient_type = request.query_params.get('patient_type')
+    if patient_type:
+        tariffs = tariffs.filter(patient_type=patient_type)
+    hmo_id = request.query_params.get('hmo_id')
+    if hmo_id:
+        tariffs = tariffs.filter(hmo_id=hmo_id)
+    return Response({'success': True, 'tariffs': ServiceTariffSerializer(tariffs, many=True).data})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def tariff_create_view(request):
+    if request.user.role not in TARIFF_ALLOWED and not request.user.is_superuser:
+        return Response({'success': False, 'message': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+    serializer = ServiceTariffSerializer(data=request.data)
+    if serializer.is_valid():
+        tariff = serializer.save()
+        return Response({'success': True, 'message': 'Tariff created', 'tariff': ServiceTariffSerializer(tariff).data}, status=status.HTTP_201_CREATED)
+    return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['PUT', 'PATCH'])
+@permission_classes([IsAuthenticated])
+def tariff_update_view(request, pk):
+    if request.user.role not in TARIFF_ALLOWED and not request.user.is_superuser:
+        return Response({'success': False, 'message': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+    try:
+        tariff = ServiceTariff.objects.get(pk=pk)
+    except ServiceTariff.DoesNotExist:
+        return Response({'success': False, 'message': 'Tariff not found'}, status=status.HTTP_404_NOT_FOUND)
+    serializer = ServiceTariffSerializer(tariff, data=request.data, partial=True)
+    if serializer.is_valid():
+        serializer.save()
+        return Response({'success': True, 'message': 'Tariff updated', 'tariff': serializer.data})
+    return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def tariff_delete_view(request, pk):
+    if request.user.role not in TARIFF_ALLOWED and not request.user.is_superuser:
+        return Response({'success': False, 'message': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+    try:
+        ServiceTariff.objects.get(pk=pk).delete()
+        return Response({'success': True, 'message': 'Tariff deleted'})
+    except ServiceTariff.DoesNotExist:
+        return Response({'success': False, 'message': 'Tariff not found'}, status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def tariff_for_patient_view(request, patient_id):
+    """
+    Return a dict of service_id → price for a given patient (based on their type/HMO).
+    GET /api/billing/tariffs/for-patient/<patient_id>/
+    """
+    from patients.models import Patient
+    try:
+        patient = Patient.objects.get(pk=patient_id)
+    except Patient.DoesNotExist:
+        return Response({'success': False, 'message': 'Patient not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    tariffs = ServiceTariff.objects.filter(
+        patient_type=patient.patient_type,
+        hmo=patient.hmo,
+        is_active=True,
+    ).select_related('service')
+
+    prices = {str(t.service_id): float(t.price) for t in tariffs}
+    return Response({
+        'success': True,
+        'patient_type': patient.patient_type,
+        'hmo': patient.hmo.name if patient.hmo else None,
+        'prices': prices,
+    })

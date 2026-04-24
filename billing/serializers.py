@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Invoice, InvoiceItem, Payment, Service
+from .models import Invoice, InvoiceItem, Payment, Service, ServiceTariff
 from patients.models import Patient
 from django.contrib.auth import get_user_model
 
@@ -101,3 +101,20 @@ class PaymentCreateSerializer(serializers.ModelSerializer):
         model = Payment
         fields = ('invoice', 'amount', 'payment_method', 'payment_date', 'reference_number', 'notes')
 
+
+
+class ServiceTariffSerializer(serializers.ModelSerializer):
+    service_name = serializers.CharField(source='service.name', read_only=True)
+    hmo_name = serializers.SerializerMethodField()
+    patient_type_display = serializers.CharField(source='get_patient_type_display', read_only=True)
+
+    class Meta:
+        model = ServiceTariff
+        fields = [
+            'id', 'service', 'service_name', 'patient_type', 'patient_type_display',
+            'hmo', 'hmo_name', 'price', 'is_active', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['created_at', 'updated_at']
+
+    def get_hmo_name(self, obj):
+        return obj.hmo.name if obj.hmo else None

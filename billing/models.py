@@ -171,3 +171,30 @@ class Payment(models.Model):
         self.invoice.paid_amount = sum(payment.amount for payment in self.invoice.payments.all())
         self.invoice.save()
 
+
+
+class ServiceTariff(models.Model):
+    PATIENT_TYPE_CHOICES = [
+        ('outpatient', 'Outpatient'),
+        ('retainership', 'Retainership (HMO)'),
+    ]
+
+    service = models.ForeignKey(Service, on_delete=models.CASCADE, related_name='tariffs')
+    patient_type = models.CharField(max_length=20, choices=PATIENT_TYPE_CHOICES)
+    hmo = models.ForeignKey(
+        'patients.HMO', on_delete=models.CASCADE, null=True, blank=True,
+        related_name='tariffs'
+    )
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'service_tariffs'
+        unique_together = ('service', 'patient_type', 'hmo')
+        ordering = ['service__name', 'patient_type']
+
+    def __str__(self):
+        hmo_str = f" - {self.hmo.name}" if self.hmo else ""
+        return f"{self.service.name} | {self.get_patient_type_display()}{hmo_str} | ₦{self.price}"

@@ -15,5 +15,10 @@ urlpatterns = [
     path('services/<int:pk>/update/', views.service_update_view, name='service_update'),
     path('services/<int:pk>/delete/', views.service_delete_view, name='service_delete'),
     path('stats/', views.billing_stats_view, name='billing_stats'),
+    path('tariffs/', views.tariff_list_view, name='tariff_list'),
+    path('tariffs/create/', views.tariff_create_view, name='tariff_create'),
+    path('tariffs/for-patient/<int:patient_id>/', views.tariff_for_patient_view, name='tariff_for_patient'),
+    path('tariffs/<int:pk>/update/', views.tariff_update_view, name='tariff_update'),
+    path('tariffs/<int:pk>/delete/', views.tariff_delete_view, name='tariff_delete'),
 ]
 
