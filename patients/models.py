@@ -1,7 +1,18 @@
 from django.db import models
 from django.contrib.auth import get_user_model
+import re
 
 User = get_user_model()
+
+CLINIC_PREFIX = 'DANNYS'
+
+
+def _slugify_name(name):
+    """Convert HMO name to a short uppercase slug. e.g. 'AVOH HMO' → 'AVOH'"""
+    # Remove common suffixes, uppercase, keep only letters/digits
+    name = re.sub(r'\bHMO\b', '', name, flags=re.IGNORECASE).strip()
+    name = re.sub(r'[^A-Za-z0-9]', '', name).upper()
+    return name[:10]  # max 10 chars
 
 
 class HMO(models.Model):
@@ -15,8 +26,15 @@ class HMO(models.Model):
         db_table = 'hmos'
         ordering = ['name']
 
+    def save(self, *args, **kwargs):
+        # Auto-generate code if not set
+        if not self.code:
+            slug = _slugify_name(self.name)
+            self.code = f"{CLINIC_PREFIX}-{slug}"
+        super().save(*args, **kwargs)
+
     def __str__(self):
-        return self.name
+        return f"{self.name} ({self.code})"
 
 
 class Patient(models.Model):
@@ -43,6 +61,9 @@ class Patient(models.Model):
         User, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='patient_profile', limit_choices_to={'role': 'patient'}
     )
+
+    # Patient code e.g. DANNYS-NHIA-0001 or DANNYS-OUT-0001
+    patient_code = models.CharField(max_length=30, unique=True, blank=True, null=True)
 
     # Basic Information
     first_name = models.CharField(max_length=100)
@@ -95,8 +116,39 @@ class Patient(models.Model):
         verbose_name_plural = 'Patients'
         ordering = ['-created_at']
 
+    def save(self, *args, **kwargs):
+        regenerate = False
+        if not self.pk:
+            # New patient — always generate
+            regenerate = True
+        elif not self.patient_code:
+            # Existing patient with no code yet
+            regenerate = True
+        else:
+            # Check if HMO or patient_type changed
+            try:
+                old = Patient.objects.get(pk=self.pk)
+                if old.hmo_id != self.hmo_id or old.patient_type != self.patient_type:
+                    regenerate = True
+            except Patient.DoesNotExist:
+                regenerate = True
+
+        if regenerate:
+            self.patient_code = self._generate_code()
+        super().save(*args, **kwargs)
+
+    def _generate_code(self):
+        if self.patient_type == 'retainership' and self.hmo:
+            hmo_code = self.hmo.code or f"{CLINIC_PREFIX}-{_slugify_name(self.hmo.name)}"
+            prefix = hmo_code
+            count = Patient.objects.filter(patient_type='retainership', hmo=self.hmo).count() + 1
+        else:
+            prefix = f"{CLINIC_PREFIX}-OUT"
+            count = Patient.objects.filter(patient_type='outpatient').count() + 1
+        return f"{prefix}-{count:04d}"
+
     def __str__(self):
-        return f"{self.full_name} ({self.phone_number})"
+        return f"{self.full_name} [{self.patient_code}]"
 
     @property
     def full_name(self):
