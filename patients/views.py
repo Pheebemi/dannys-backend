@@ -108,6 +108,9 @@ def patient_create_view(request):
         }, status=status.HTTP_400_BAD_REQUEST)
 
     try:
+        from django.db.models.signals import post_save
+        from patients.signals import create_patient_record_for_patient_user
+
         with transaction.atomic():
             data = serializer.validated_data
             email = data.get('email')
@@ -115,7 +118,6 @@ def patient_create_view(request):
             first_name = data.get('first_name', '')
             last_name = data.get('last_name', '')
 
-            # Default password is the phone number
             default_password = phone
 
             portal_user = None
@@ -127,19 +129,23 @@ def patient_create_view(request):
                         'errors': {'email': ['A user account with this email already exists.']}
                     }, status=status.HTTP_400_BAD_REQUEST)
 
-                # Create portal User account
-                username = email
-                portal_user = User.objects.create_user(
-                    username=username,
-                    email=email,
-                    password=default_password,
-                    first_name=first_name,
-                    last_name=last_name,
-                    role='patient',
-                    phone_number=phone,
-                )
+                # Disconnect signal so it doesn't auto-create a Patient —
+                # we create the Patient ourselves below with full details
+                post_save.disconnect(create_patient_record_for_patient_user, sender=User)
+                try:
+                    portal_user = User.objects.create_user(
+                        username=email,
+                        email=email,
+                        password=default_password,
+                        first_name=first_name,
+                        last_name=last_name,
+                        role='patient',
+                        phone_number=phone,
+                    )
+                finally:
+                    post_save.connect(create_patient_record_for_patient_user, sender=User)
 
-            # Create Patient record linked to the user
+            # Create Patient record with full details linked to the user
             patient = serializer.save(
                 created_by=request.user,
                 user=portal_user,
@@ -162,15 +168,36 @@ def patient_create_view(request):
         return Response(response_data, status=status.HTTP_201_CREATED)
 
     except IntegrityError as e:
-        if 'email' in str(e):
+        err = str(e).lower()
+        if 'email' in err:
             return Response({
                 'success': False,
                 'message': 'A patient with this email already exists.',
                 'errors': {'email': ['A patient with this email already exists.']}
             }, status=status.HTTP_400_BAD_REQUEST)
+        if 'phone' in err:
+            return Response({
+                'success': False,
+                'message': 'A patient with this phone number already exists.',
+                'errors': {'phone_number': ['This phone number is already registered.']}
+            }, status=status.HTTP_400_BAD_REQUEST)
+        if 'patient_code' in err:
+            return Response({
+                'success': False,
+                'message': 'A patient ID conflict occurred. Please try again.',
+            }, status=status.HTTP_400_BAD_REQUEST)
+        if 'username' in err:
+            return Response({
+                'success': False,
+                'message': 'A user account with this email already exists.',
+                'errors': {'email': ['A portal account with this email already exists.']}
+            }, status=status.HTTP_400_BAD_REQUEST)
+        # Log the actual error for debugging and return it
+        import logging
+        logging.getLogger(__name__).error(f"Patient create IntegrityError: {e}")
         return Response({
             'success': False,
-            'message': 'Failed to create patient due to a data conflict.',
+            'message': f'Data conflict: {str(e)}',
         }, status=status.HTTP_400_BAD_REQUEST)
 
 
