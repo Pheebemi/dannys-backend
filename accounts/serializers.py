@@ -15,41 +15,26 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class LoginSerializer(serializers.Serializer):
-    """Serializer for login"""
+    """Serializer for login — role is optional (auto-detected from user record)"""
     email = serializers.EmailField(required=True, allow_blank=False)
     password = serializers.CharField(write_only=True, required=True, allow_blank=False)
-    role = serializers.ChoiceField(choices=User.ROLE_CHOICES, required=True)
-    
+    role = serializers.ChoiceField(choices=User.ROLE_CHOICES, required=False, allow_null=True)
+
     def validate(self, attrs):
-        email = attrs.get('email')
+        email = attrs.get('email', '').lower().strip()
         password = attrs.get('password')
-        role = attrs.get('role')
-        
-        if not email:
-            raise serializers.ValidationError({'email': 'Email is required.'})
-        
-        if not password:
-            raise serializers.ValidationError({'password': 'Password is required.'})
-        
-        if not role:
-            raise serializers.ValidationError({'role': 'Role is required.'})
-        
+
         try:
             user = User.objects.get(email=email)
         except User.DoesNotExist:
             raise serializers.ValidationError({'email': 'Invalid email or password.'})
-        
+
         if not user.check_password(password):
             raise serializers.ValidationError({'password': 'Invalid email or password.'})
-        
-        if user.role != role:
-            raise serializers.ValidationError({
-                'role': f'User is not registered as {role}. Current role: {user.get_role_display()}.'
-            })
-        
+
         if not user.is_active:
-            raise serializers.ValidationError({'email': 'User account is disabled.'})
-        
+            raise serializers.ValidationError({'email': 'This account has been disabled.'})
+
         attrs['user'] = user
         return attrs
 
