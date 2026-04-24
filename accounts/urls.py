@@ -9,6 +9,7 @@ urlpatterns = [
     path('logout/', views.logout_view, name='logout'),
     path('profile/', views.profile_view, name='profile'),
     path('profile/update/', views.update_profile_view, name='update_profile'),
+    path('change-password/', views.change_password_view, name='change_password'),
     path('refresh/', views.refresh_token_view, name='refresh_token'),
     # Admin endpoints
     path('staff/', views.staff_list_view, name='staff_list'),

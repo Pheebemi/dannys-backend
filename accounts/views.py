@@ -469,3 +469,36 @@ def patient_register_view(request):
             'access': str(refresh.access_token),
         }
     }, status=status.HTTP_201_CREATED)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def change_password_view(request):
+    """
+    Change password for any authenticated user.
+    POST /api/auth/change-password/
+    Body: { "current_password": "...", "new_password": "...", "confirm_password": "..." }
+    """
+    current_password = request.data.get('current_password', '')
+    new_password = request.data.get('new_password', '')
+    confirm_password = request.data.get('confirm_password', '')
+
+    if not current_password or not new_password or not confirm_password:
+        return Response({'success': False, 'message': 'All fields are required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if not request.user.check_password(current_password):
+        return Response({'success': False, 'message': 'Current password is incorrect.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if new_password != confirm_password:
+        return Response({'success': False, 'message': 'New passwords do not match.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if len(new_password) < 8:
+        return Response({'success': False, 'message': 'New password must be at least 8 characters.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if new_password == current_password:
+        return Response({'success': False, 'message': 'New password must be different from current password.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    request.user.set_password(new_password)
+    request.user.save()
+
+    return Response({'success': True, 'message': 'Password changed successfully. Please log in again.'})
