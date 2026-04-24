@@ -185,11 +185,11 @@ def lab_test_category_list_view(request):
         }, status=status.HTTP_200_OK)
     
     elif request.method == 'POST':
-        # Only admin can create categories
-        if request.user.role != 'admin' and not request.user.is_superuser:
+        # Admin and lab technicians can create categories
+        if request.user.role not in ['admin', 'lab_technician'] and not request.user.is_superuser:
             return Response({
                 'success': False,
-                'message': 'Permission denied. Admin access required.'
+                'message': 'Permission denied.'
             }, status=status.HTTP_403_FORBIDDEN)
         
         serializer = LabTestCategorySerializer(data=request.data)
