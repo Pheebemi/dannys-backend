@@ -83,45 +83,95 @@ def patient_list_view(request):
 @permission_classes([IsAuthenticated])
 def patient_create_view(request):
     """
-    Create a new patient
+    Create a new patient + a portal User account in one step.
+    Default password = patient's phone number.
     POST /api/patients/create/
     """
+    from django.db import transaction
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+
     serializer = PatientCreateSerializer(data=request.data)
-    
-    if serializer.is_valid():
-        try:
-            patient = serializer.save(created_by=request.user)
-            return Response({
-                'success': True,
-                'message': 'Patient created successfully',
-                'patient': PatientSerializer(patient).data
-            }, status=status.HTTP_201_CREATED)
-        except IntegrityError as e:
-            if 'email' in str(e):
-                return Response({
-                    'success': False,
-                    'message': 'A patient with this email already exists.',
-                    'errors': {'email': ['A patient with this email already exists.']}
-                }, status=status.HTTP_400_BAD_REQUEST)
+
+    if not serializer.is_valid():
+        error_messages = []
+        for field, errors in serializer.errors.items():
+            if isinstance(errors, list):
+                error_messages.extend([f"{field}: {error}" for error in errors])
+            else:
+                error_messages.append(f"{field}: {errors}")
+        return Response({
+            'success': False,
+            'message': 'Failed to create patient',
+            'errors': serializer.errors,
+            'error': '; '.join(error_messages) if error_messages else 'Invalid data'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        with transaction.atomic():
+            data = serializer.validated_data
+            email = data.get('email')
+            phone = data.get('phone_number', '')
+            first_name = data.get('first_name', '')
+            last_name = data.get('last_name', '')
+
+            # Default password is the phone number
+            default_password = phone
+
+            portal_user = None
+            if email:
+                if User.objects.filter(email=email).exists():
+                    return Response({
+                        'success': False,
+                        'message': 'A user account with this email already exists.',
+                        'errors': {'email': ['A user account with this email already exists.']}
+                    }, status=status.HTTP_400_BAD_REQUEST)
+
+                # Create portal User account
+                username = email
+                portal_user = User.objects.create_user(
+                    username=username,
+                    email=email,
+                    password=default_password,
+                    first_name=first_name,
+                    last_name=last_name,
+                    role='patient',
+                    phone_number=phone,
+                )
+
+            # Create Patient record linked to the user
+            patient = serializer.save(
+                created_by=request.user,
+                user=portal_user,
+            )
+
+        response_data = {
+            'success': True,
+            'message': 'Patient and portal account created successfully',
+            'patient': PatientSerializer(patient).data,
+        }
+        if portal_user and email:
+            response_data['portal_credentials'] = {
+                'email': email,
+                'default_password': default_password,
+                'note': "Share these credentials with the patient. They can log in at /patient/login and should change their password."
+            }
+        else:
+            response_data['message'] = 'Patient created. No portal account was created (no email provided).'
+
+        return Response(response_data, status=status.HTTP_201_CREATED)
+
+    except IntegrityError as e:
+        if 'email' in str(e):
             return Response({
                 'success': False,
-                'message': 'Failed to create patient due to a data conflict.',
+                'message': 'A patient with this email already exists.',
+                'errors': {'email': ['A patient with this email already exists.']}
             }, status=status.HTTP_400_BAD_REQUEST)
-    
-    # Return detailed error messages
-    error_messages = []
-    for field, errors in serializer.errors.items():
-        if isinstance(errors, list):
-            error_messages.extend([f"{field}: {error}" for error in errors])
-        else:
-            error_messages.append(f"{field}: {errors}")
-    
-    return Response({
-        'success': False,
-        'message': 'Failed to create patient',
-        'errors': serializer.errors,
-        'error': '; '.join(error_messages) if error_messages else 'Invalid data'
-    }, status=status.HTTP_400_BAD_REQUEST)
+        return Response({
+            'success': False,
+            'message': 'Failed to create patient due to a data conflict.',
+        }, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['GET'])

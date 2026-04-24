@@ -141,11 +141,19 @@ class Patient(models.Model):
         if self.patient_type == 'retainership' and self.hmo:
             hmo_code = self.hmo.code or f"{CLINIC_PREFIX}-{_slugify_name(self.hmo.name)}"
             prefix = hmo_code
-            count = Patient.objects.filter(patient_type='retainership', hmo=self.hmo).count() + 1
         else:
             prefix = f"{CLINIC_PREFIX}-OUT"
-            count = Patient.objects.filter(patient_type='outpatient').count() + 1
-        return f"{prefix}-{count:04d}"
+
+        # Find the next number that isn't already taken
+        n = 1
+        while True:
+            code = f"{prefix}-{n:04d}"
+            qs = Patient.objects.filter(patient_code=code)
+            if self.pk:
+                qs = qs.exclude(pk=self.pk)
+            if not qs.exists():
+                return code
+            n += 1
 
     def __str__(self):
         return f"{self.full_name} [{self.patient_code}]"
