@@ -25,12 +25,19 @@ def prescription_list_view(request):
         'patient', 'prescribed_by', 'dispensed_by'
     ).prefetch_related('items').all()
 
+    # Patients can only see their own prescriptions
+    if request.user.role == 'patient':
+        try:
+            prescriptions = prescriptions.filter(patient=request.user.patient_profile)
+        except Exception:
+            return Response({'success': True, 'prescriptions': [], 'pagination': {'total': 0, 'page': 1, 'page_size': 20, 'total_pages': 0}})
+
     status_filter = request.query_params.get('status')
     if status_filter:
         prescriptions = prescriptions.filter(status=status_filter)
 
     patient_id = request.query_params.get('patient_id')
-    if patient_id:
+    if patient_id and request.user.role != 'patient':
         prescriptions = prescriptions.filter(patient_id=patient_id)
 
     search = request.query_params.get('search')

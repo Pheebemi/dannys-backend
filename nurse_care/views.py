@@ -14,9 +14,15 @@ from .serializers import VitalSignSerializer, MedicationRecordSerializer
 def vital_sign_list_view(request):
     vitals = VitalSign.objects.select_related('patient', 'recorded_by').all()
 
-    patient_id = request.query_params.get('patient_id')
-    if patient_id:
-        vitals = vitals.filter(patient_id=patient_id)
+    if request.user.role == 'patient':
+        try:
+            vitals = vitals.filter(patient=request.user.patient_profile)
+        except Exception:
+            return Response({'success': True, 'vital_signs': [], 'pagination': {'total': 0, 'page': 1, 'page_size': 20, 'total_pages': 0}})
+    else:
+        patient_id = request.query_params.get('patient_id')
+        if patient_id:
+            vitals = vitals.filter(patient_id=patient_id)
 
     date = request.query_params.get('date')
     if date:
@@ -105,9 +111,15 @@ def vital_sign_stats_view(request):
 def medication_list_view(request):
     medications = MedicationRecord.objects.select_related('patient', 'administered_by').all()
 
-    patient_id = request.query_params.get('patient_id')
-    if patient_id:
-        medications = medications.filter(patient_id=patient_id)
+    if request.user.role == 'patient':
+        try:
+            medications = medications.filter(patient=request.user.patient_profile)
+        except Exception:
+            return Response({'success': True, 'medications': [], 'pagination': {'total': 0, 'page': 1, 'page_size': 20, 'total_pages': 0}})
+    else:
+        patient_id = request.query_params.get('patient_id')
+        if patient_id:
+            medications = medications.filter(patient_id=patient_id)
 
     status_filter = request.query_params.get('status')
     if status_filter:

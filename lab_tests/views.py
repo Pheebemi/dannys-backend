@@ -25,12 +25,19 @@ def lab_test_list_view(request):
         page_size (int): Items per page
     """
     tests = LabTest.objects.all().order_by('-ordered_date', '-created_at')
-    
+
+    # Patients can only see their own lab tests
+    if request.user.role == 'patient':
+        try:
+            tests = tests.filter(patient=request.user.patient_profile)
+        except Exception:
+            return Response({'success': True, 'tests': [], 'pagination': {'total': 0, 'page': 1, 'page_size': 20, 'total_pages': 0}})
+
     # Filters
     status_filter = request.query_params.get('status')
     if status_filter:
         tests = tests.filter(status=status_filter)
-    
+
     patient_id = request.query_params.get('patient_id')
     if patient_id:
         tests = tests.filter(patient_id=patient_id)
