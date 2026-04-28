@@ -194,15 +194,34 @@ def payment_create_view(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def service_list_view(request):
-    """
-    List all services
-    GET /api/billing/services/
-    """
     services = Service.objects.filter(is_active=True).order_by('name')
-    serializer = ServiceSerializer(services, many=True)
+
+    search = request.query_params.get('search')
+    if search:
+        services = services.filter(
+            Q(name__icontains=search) | Q(category__icontains=search)
+        )
+
+    category = request.query_params.get('category')
+    if category:
+        services = services.filter(category__iexact=category)
+
+    page = int(request.query_params.get('page', 1))
+    page_size = int(request.query_params.get('page_size', 50))
+    total = services.count()
+    start = (page - 1) * page_size
+    end = start + page_size
+
+    serializer = ServiceSerializer(services[start:end], many=True)
     return Response({
         'success': True,
-        'services': serializer.data
+        'services': serializer.data,
+        'pagination': {
+            'total': total,
+            'page': page,
+            'page_size': page_size,
+            'total_pages': (total + page_size - 1) // page_size,
+        }
     }, status=status.HTTP_200_OK)
 
 
@@ -315,17 +334,43 @@ TARIFF_ALLOWED = ['admin', 'receptionist']
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def tariff_list_view(request):
-    tariffs = ServiceTariff.objects.select_related('service', 'hmo').all()
+    tariffs = ServiceTariff.objects.select_related('service', 'hmo').all().order_by('service__name')
+
     service_id = request.query_params.get('service_id')
     if service_id:
         tariffs = tariffs.filter(service_id=service_id)
+
     patient_type = request.query_params.get('patient_type')
     if patient_type:
         tariffs = tariffs.filter(patient_type=patient_type)
+
     hmo_id = request.query_params.get('hmo_id')
     if hmo_id:
         tariffs = tariffs.filter(hmo_id=hmo_id)
-    return Response({'success': True, 'tariffs': ServiceTariffSerializer(tariffs, many=True).data})
+
+    search = request.query_params.get('search')
+    if search:
+        tariffs = tariffs.filter(
+            Q(service__name__icontains=search) | Q(hmo__name__icontains=search)
+        )
+
+    page = int(request.query_params.get('page', 1))
+    page_size = int(request.query_params.get('page_size', 50))
+    total = tariffs.count()
+    start = (page - 1) * page_size
+    end = start + page_size
+
+    serializer = ServiceTariffSerializer(tariffs[start:end], many=True)
+    return Response({
+        'success': True,
+        'tariffs': serializer.data,
+        'pagination': {
+            'total': total,
+            'page': page,
+            'page_size': page_size,
+            'total_pages': (total + page_size - 1) // page_size,
+        }
+    })
 
 
 @api_view(['POST'])
