@@ -6,20 +6,70 @@ django.setup()
 from lab_tests.models import LabTestCategory
 
 categories = [
-    "Haematology",
-    "Microbiology",
-    "Serology",
-    "Chemistry",
-    "Immunology",
-    "Parasitology",
+    "MP (Malaria Parasite)",
+    "Widal",
+    "PCV",
     "Urinalysis",
-    "Histopathology",
-    "Molecular Biology",
-    "Blood Bank",
+    "PT (Pregnancy Test)",
+    "HCV",
+    "HBV",
+    "ARC/RVS",
+    "FBC (Full Blood Count)",
+    "ESR",
+    "Blood Grouping",
+    "RBS (Random Blood Sugar)",
+    "FBS (Fasting Blood Sugar)",
+    "2HPP",
+    "Urine M/C/S",
+    "Stool M/C/S",
+    "Stool Microscopy",
+    "Occult Blood",
+    "HVS MCS",
+    "HbA1C",
+    "AFP",
+    "Lipid Profile",
+    "Genotype",
+    "PSA Qualitative",
+    "PSA Quantitative",
+    "Rheumatoid Factor",
+    "H. Pylori",
+    "Urea",
+    "Creatinine",
+    "Cholesterol",
+    "Uric Acid",
+    "Calcium",
+    "ASL",
+    "ALT",
+    "LFT (Liver Function Test)",
+    "E/U/CR",
+    "Electrolyte",
+    "Albumin",
+    "HBV Quantification",
+    "HBV (DNA)",
+    "HCV RNA",
+    "BCV Genotype",
+    "Viral Screening (Donor Screening)",
+    "T3 T4 and TSA",
+    "HB Serology/Profile",
+    "Total Bilirubin",
+    "Plural Fluid AFB",
+    "RFT/E/U/Cr",
+    "VDRL",
+    "ARC Viral Load (RNA)",
+    "Asetic Fluid Analysis (AFAB)",
+    "AFAC",
+    "AFA Haem",
+    "A Feto Protein Quantitative",
+    "Magnesium",
+    "Organic Phosphate",
+    "Viral Maker",
+    "Rheumatoid Factor +VE",
+    "Blood Culture",
+    "CD4 Count",
 ]
 
 created = 0
-updated = 0
+existing = 0
 for name in categories:
     obj, was_created = LabTestCategory.objects.update_or_create(
         name=name,
@@ -29,7 +79,7 @@ for name in categories:
         created += 1
         print(f"  Created: {name}")
     else:
-        updated += 1
+        existing += 1
         print(f"  Exists:  {name}")
 
-print(f"\nDone! {created} created, {updated} already existed. Total: {created + updated} categories.")
+print(f"\nDone! {created} created, {existing} already existed. Total: {created + existing} categories.")
