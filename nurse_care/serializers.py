@@ -16,7 +16,7 @@ class VitalSignSerializer(serializers.ModelSerializer):
             'weight', 'height', 'bmi', 'notes',
             'created_at', 'updated_at',
         ]
-        read_only_fields = ['bmi', 'recorded_at', 'created_at', 'updated_at']
+        read_only_fields = ['bmi', 'created_at', 'updated_at']
 
     def get_recorded_by_name(self, obj):
         if obj.recorded_by:

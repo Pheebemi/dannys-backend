@@ -23,7 +23,7 @@ class PrescriptionSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'patient', 'patient_name', 'patient_phone',
             'prescribed_by', 'prescribed_by_name',
-            'status', 'notes', 'items',
+            'status', 'prescription_date', 'notes', 'items',
             'dispensed_by', 'dispensed_by_name', 'dispensed_at',
             'created_at', 'updated_at',
         ]
@@ -45,7 +45,7 @@ class PrescriptionCreateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Prescription
-        fields = ['patient', 'prescribed_by', 'notes', 'items']
+        fields = ['patient', 'prescribed_by', 'prescription_date', 'notes', 'items']
 
     def validate_items(self, value):
         if not value:

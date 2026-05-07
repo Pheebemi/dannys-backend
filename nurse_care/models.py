@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 from patients.models import Patient
 
 User = get_user_model()
@@ -8,7 +9,7 @@ User = get_user_model()
 class VitalSign(models.Model):
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name='vital_signs')
     recorded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='vital_signs_recorded')
-    recorded_at = models.DateTimeField(auto_now_add=True)
+    recorded_at = models.DateTimeField(default=None, null=True, blank=True)
     temperature = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     blood_pressure_systolic = models.PositiveIntegerField(null=True, blank=True)
     blood_pressure_diastolic = models.PositiveIntegerField(null=True, blank=True)
@@ -30,6 +31,8 @@ class VitalSign(models.Model):
         return f"Vitals for {self.patient.full_name} at {self.recorded_at}"
 
     def save(self, *args, **kwargs):
+        if not self.recorded_at:
+            self.recorded_at = timezone.now()
         if self.weight and self.height and self.height > 0:
             height_m = float(self.height) / 100
             self.bmi = round(float(self.weight) / (height_m ** 2), 2)

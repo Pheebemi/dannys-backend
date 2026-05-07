@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 from patients.models import Patient
 
 User = get_user_model()
@@ -19,6 +20,7 @@ class Prescription(models.Model):
         related_name='prescriptions_written', limit_choices_to={'role': 'doctor'}
     )
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    prescription_date = models.DateTimeField(default=timezone.now)
     notes = models.TextField(blank=True, null=True)
     dispensed_by = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, blank=True,
