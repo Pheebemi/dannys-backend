@@ -112,7 +112,7 @@ class InvoiceItem(models.Model):
     Individual line items on an invoice
     """
     invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, related_name='items')
-    service = models.ForeignKey(Service, on_delete=models.PROTECT)
+    service = models.ForeignKey(Service, on_delete=models.PROTECT, null=True, blank=True)
     description = models.CharField(max_length=500, blank=True, null=True)
     quantity = models.DecimalField(max_digits=10, decimal_places=2, default=1.00)
     unit_price = models.DecimalField(max_digits=10, decimal_places=2)
@@ -124,7 +124,8 @@ class InvoiceItem(models.Model):
         verbose_name_plural = 'Invoice Items'
     
     def __str__(self):
-        return f"{self.service.name} x {self.quantity}"
+        name = self.service.name if self.service else (self.description or "Manual item")
+        return f"{name} x {self.quantity}"
     
     def save(self, *args, **kwargs):
         self.total = self.quantity * self.unit_price

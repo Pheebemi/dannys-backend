@@ -17,12 +17,17 @@ class ServiceSerializer(serializers.ModelSerializer):
 
 class InvoiceItemSerializer(serializers.ModelSerializer):
     """Serializer for InvoiceItem model"""
-    service_name = serializers.CharField(source='service.name', read_only=True)
-    
+    service_name = serializers.SerializerMethodField()
+
     class Meta:
         model = InvoiceItem
         fields = ('id', 'service', 'service_name', 'description', 'quantity', 'unit_price', 'total')
         read_only_fields = ('id', 'total')
+
+    def get_service_name(self, obj):
+        if obj.service:
+            return obj.service.name
+        return obj.description or '—'
 
 
 class PaymentSerializer(serializers.ModelSerializer):
