@@ -1,5 +1,8 @@
 from rest_framework import serializers
+from django.contrib.auth import get_user_model
 from .models import Prescription, PrescriptionItem, MedicationInventory
+
+User = get_user_model()
 
 
 class PrescriptionItemSerializer(serializers.ModelSerializer):
@@ -42,6 +45,11 @@ class PrescriptionSerializer(serializers.ModelSerializer):
 
 class PrescriptionCreateSerializer(serializers.ModelSerializer):
     items = PrescriptionItemSerializer(many=True)
+    prescribed_by = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(),
+        required=False,
+        allow_null=True,
+    )
 
     class Meta:
         model = Prescription
