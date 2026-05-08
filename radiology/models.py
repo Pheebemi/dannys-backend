@@ -60,3 +60,21 @@ class RadiologyTest(models.Model):
 
     def __str__(self):
         return f"{self.test_name} — {self.patient.full_name}"
+
+
+class RadiologyResult(models.Model):
+    test = models.ForeignKey(RadiologyTest, on_delete=models.CASCADE, related_name='test_results')
+    parameter_name = models.CharField(max_length=200)
+    value = models.CharField(max_length=200)
+    unit = models.CharField(max_length=50, blank=True, null=True)
+    normal_range = models.CharField(max_length=200, blank=True, null=True)
+    is_abnormal = models.BooleanField(default=False)
+    notes = models.CharField(max_length=500, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'radiology_results'
+        ordering = ['id']
+
+    def __str__(self):
+        return f"{self.parameter_name}: {self.value} ({self.test.test_name})"

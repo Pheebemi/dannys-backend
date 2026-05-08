@@ -9,4 +9,6 @@ urlpatterns = [
     path('<int:pk>/delete/', views.radiology_test_delete_view, name='radiology-delete'),
     path('categories/', views.radiology_category_list_view, name='radiology-categories'),
     path('stats/', views.radiology_stats_view, name='radiology-stats'),
+    path('<int:test_id>/results/', views.radiology_result_create_view, name='radiology-result-create'),
+    path('<int:test_id>/results/<int:result_id>/', views.radiology_result_detail_view, name='radiology-result-detail'),
 ]

@@ -1,5 +1,11 @@
 from django.contrib import admin
-from .models import RadiologyCategory, RadiologyTest
+from .models import RadiologyCategory, RadiologyTest, RadiologyResult
+
+
+class RadiologyResultInline(admin.TabularInline):
+    model = RadiologyResult
+    extra = 1
+    fields = ('parameter_name', 'value', 'unit', 'normal_range', 'is_abnormal', 'notes')
 
 
 @admin.register(RadiologyCategory)
@@ -15,6 +21,7 @@ class RadiologyTestAdmin(admin.ModelAdmin):
     search_fields = ('test_name', 'patient__first_name', 'patient__last_name')
     readonly_fields = ('created_at', 'updated_at')
     raw_id_fields = ('patient', 'ordered_by', 'performed_by')
+    inlines = [RadiologyResultInline]
     fieldsets = (
         ('Test Info', {
             'fields': ('patient', 'category', 'test_name', 'status', 'priority', 'cost')

@@ -3,12 +3,13 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.utils import timezone
-from .models import RadiologyCategory, RadiologyTest
+from .models import RadiologyCategory, RadiologyTest, RadiologyResult
 from .serializers import (
     RadiologyCategorySerializer,
     RadiologyTestSerializer,
     RadiologyTestCreateSerializer,
     RadiologyTestUpdateSerializer,
+    RadiologyResultSerializer,
 )
 
 
@@ -118,6 +119,41 @@ def radiology_test_delete_view(request, pk):
         return Response({'success': True, 'message': 'Radiology test deleted'})
     except RadiologyTest.DoesNotExist:
         return Response({'success': False, 'message': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def radiology_result_create_view(request, test_id):
+    try:
+        test = RadiologyTest.objects.get(pk=test_id)
+    except RadiologyTest.DoesNotExist:
+        return Response({'success': False, 'message': 'Test not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    data = {**request.data, 'test': test.id}
+    serializer = RadiologyResultSerializer(data=data)
+    if serializer.is_valid():
+        serializer.save()
+        return Response({'success': True, 'result': serializer.data}, status=status.HTTP_201_CREATED)
+    return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['PUT', 'PATCH', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def radiology_result_detail_view(request, test_id, result_id):
+    try:
+        result = RadiologyResult.objects.get(pk=result_id, test_id=test_id)
+    except RadiologyResult.DoesNotExist:
+        return Response({'success': False, 'message': 'Result not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'DELETE':
+        result.delete()
+        return Response({'success': True, 'message': 'Result deleted'})
+
+    serializer = RadiologyResultSerializer(result, data=request.data, partial=True)
+    if serializer.is_valid():
+        serializer.save()
+        return Response({'success': True, 'result': serializer.data})
+    return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['GET', 'POST'])

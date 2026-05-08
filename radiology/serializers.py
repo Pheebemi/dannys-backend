@@ -1,5 +1,12 @@
 from rest_framework import serializers
-from .models import RadiologyCategory, RadiologyTest
+from .models import RadiologyCategory, RadiologyTest, RadiologyResult
+
+
+class RadiologyResultSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RadiologyResult
+        fields = ['id', 'test', 'parameter_name', 'value', 'unit', 'normal_range', 'is_abnormal', 'notes', 'created_at']
+        read_only_fields = ['id', 'created_at']
 
 
 class RadiologyCategorySerializer(serializers.ModelSerializer):
@@ -15,6 +22,7 @@ class RadiologyTestSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source='category.name', read_only=True)
     ordered_by_name = serializers.SerializerMethodField()
     performed_by_name = serializers.SerializerMethodField()
+    test_results = RadiologyResultSerializer(many=True, read_only=True)
 
     class Meta:
         model = RadiologyTest
@@ -27,6 +35,7 @@ class RadiologyTestSerializer(serializers.ModelSerializer):
             'description', 'instructions', 'findings', 'impression', 'notes', 'cost',
             'ordered_date', 'scheduled_date', 'completed_date',
             'created_at', 'updated_at',
+            'test_results',
         ]
         read_only_fields = ['created_at', 'updated_at']
 
