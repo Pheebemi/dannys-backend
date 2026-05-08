@@ -13,6 +13,7 @@ class User(AbstractUser):
         ('receptionist', 'Receptionist'),
         ('pharmacist', 'Pharmacist'),
         ('lab_technician', 'Lab Technician'),
+        ('radiologist', 'Radiologist'),
         ('patient', 'Patient'),
     ]
     
