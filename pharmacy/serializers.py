@@ -7,13 +7,14 @@ User = get_user_model()
 
 class PrescriptionItemSerializer(serializers.ModelSerializer):
     inventory_item_name = serializers.CharField(source='inventory_item.medication_name', read_only=True)
+    unit_price = serializers.DecimalField(source='inventory_item.selling_price', max_digits=10, decimal_places=2, read_only=True)
 
     class Meta:
         model = PrescriptionItem
         fields = [
             'id', 'medication_name', 'dosage', 'frequency',
             'duration_days', 'quantity', 'refills_remaining', 'notes',
-            'inventory_item', 'inventory_item_name', 'out_of_stock',
+            'inventory_item', 'inventory_item_name', 'unit_price', 'out_of_stock',
         ]
 
 
