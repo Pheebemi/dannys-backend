@@ -47,6 +47,11 @@ class PrescriptionItem(models.Model):
     quantity = models.PositiveIntegerField(default=1)
     refills_remaining = models.PositiveIntegerField(default=0)
     notes = models.TextField(blank=True, null=True)
+    inventory_item = models.ForeignKey(
+        'MedicationInventory', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='dispensed_items'
+    )
+    out_of_stock = models.BooleanField(default=False)
 
     class Meta:
         db_table = 'prescription_items'

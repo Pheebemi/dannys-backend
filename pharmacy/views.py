@@ -118,6 +118,78 @@ def prescription_update_view(request, pk):
     return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
 
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def prescription_dispense_view(request, pk):
+    """
+    Dispense a prescription item by item.
+    Body: { items: [{ prescription_item_id, inventory_item_id | null }] }
+    - If inventory_item_id provided: deduct quantity from stock
+    - If null: mark item as out_of_stock
+    Sets prescription status to 'dispensed'.
+    """
+    try:
+        prescription = Prescription.objects.prefetch_related('items').get(pk=pk)
+    except Prescription.DoesNotExist:
+        return Response({'success': False, 'message': 'Prescription not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    if prescription.status == 'dispensed':
+        return Response({'success': False, 'message': 'Prescription already dispensed'}, status=status.HTTP_400_BAD_REQUEST)
+
+    items_data = request.data.get('items', [])
+    if not items_data:
+        return Response({'success': False, 'message': 'No items provided'}, status=status.HTTP_400_BAD_REQUEST)
+
+    deducted = []
+    out_of_stock = []
+
+    for entry in items_data:
+        item_id = entry.get('prescription_item_id')
+        inventory_id = entry.get('inventory_item_id')
+
+        try:
+            rx_item = prescription.items.get(id=item_id)
+        except PrescriptionItem.DoesNotExist:
+            continue
+
+        if inventory_id:
+            try:
+                inv = MedicationInventory.objects.get(id=inventory_id)
+                deduct_qty = rx_item.quantity
+                inv.stock_quantity = max(0, inv.stock_quantity - deduct_qty)
+                inv.save(update_fields=['stock_quantity'])
+                rx_item.inventory_item = inv
+                rx_item.out_of_stock = False
+                rx_item.save(update_fields=['inventory_item', 'out_of_stock'])
+                deducted.append(inv.medication_name)
+            except MedicationInventory.DoesNotExist:
+                rx_item.out_of_stock = True
+                rx_item.save(update_fields=['out_of_stock'])
+                out_of_stock.append(rx_item.medication_name)
+        else:
+            rx_item.out_of_stock = True
+            rx_item.inventory_item = None
+            rx_item.save(update_fields=['inventory_item', 'out_of_stock'])
+            out_of_stock.append(rx_item.medication_name)
+
+    prescription.status = 'dispensed'
+    prescription.dispensed_by = request.user
+    prescription.dispensed_at = timezone.now()
+    prescription.save(update_fields=['status', 'dispensed_by', 'dispensed_at'])
+
+    msg = f"Dispensed. {len(deducted)} item(s) deducted from stock."
+    if out_of_stock:
+        msg += f" {len(out_of_stock)} item(s) marked out of stock: {', '.join(out_of_stock)}."
+
+    return Response({
+        'success': True,
+        'message': msg,
+        'prescription': PrescriptionSerializer(prescription).data,
+        'deducted': deducted,
+        'out_of_stock': out_of_stock,
+    })
+
+
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
 def prescription_delete_view(request, pk):

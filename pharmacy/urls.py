@@ -7,6 +7,7 @@ urlpatterns = [
     path('prescriptions/create/', views.prescription_create_view, name='prescription-create'),
     path('prescriptions/<int:pk>/', views.prescription_detail_view, name='prescription-detail'),
     path('prescriptions/<int:pk>/update/', views.prescription_update_view, name='prescription-update'),
+    path('prescriptions/<int:pk>/dispense/', views.prescription_dispense_view, name='prescription-dispense'),
     path('prescriptions/<int:pk>/delete/', views.prescription_delete_view, name='prescription-delete'),
     # Inventory
     path('inventory/', views.inventory_list_view, name='inventory-list'),
