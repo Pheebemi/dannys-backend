@@ -16,5 +16,10 @@ urlpatterns = [
     path('hmos/create/', views.hmo_create_view, name='hmo_create'),
     path('hmos/<int:pk>/update/', views.hmo_update_view, name='hmo_update'),
     path('hmos/<int:pk>/delete/', views.hmo_delete_view, name='hmo_delete'),
+    # Referral / Discharge
+    path('referrals/', views.referral_list_view, name='referral_list'),
+    path('referrals/create/', views.referral_create_view, name='referral_create'),
+    path('referrals/<int:pk>/', views.referral_detail_view, name='referral_detail'),
+    path('referrals/<int:pk>/delete/', views.referral_delete_view, name='referral_delete'),
 ]
 

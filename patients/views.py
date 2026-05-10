@@ -4,8 +4,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.db.models import Q
 from django.db import IntegrityError
-from .models import Patient, HMO
-from .serializers import PatientSerializer, PatientCreateSerializer, HMOSerializer
+from .models import Patient, HMO, ReferralDischarge
+from .serializers import PatientSerializer, PatientCreateSerializer, HMOSerializer, ReferralDischargeSerializer
 
 
 @api_view(['GET'])
@@ -384,3 +384,57 @@ def patient_portal_status_view(request, pk):
         })
     except Patient.DoesNotExist:
         return Response({'success': False, 'message': 'Patient not found'}, status=status.HTTP_404_NOT_FOUND)
+
+
+# ── Referral / Discharge ──────────────────────────────────────────────────────
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def referral_list_view(request):
+    patient_id = request.query_params.get('patient_id')
+    referrals = ReferralDischarge.objects.select_related('patient', 'created_by').all()
+    if patient_id:
+        referrals = referrals.filter(patient_id=patient_id)
+    if request.user.role == 'patient':
+        try:
+            referrals = referrals.filter(patient=request.user.patient_profile)
+        except Exception:
+            referrals = ReferralDischarge.objects.none()
+    serializer = ReferralDischargeSerializer(referrals, many=True)
+    return Response({'success': True, 'referrals': serializer.data})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def referral_create_view(request):
+    serializer = ReferralDischargeSerializer(data=request.data)
+    if serializer.is_valid():
+        referral = serializer.save(created_by=request.user)
+        return Response({'success': True, 'message': 'Referral created', 'referral': ReferralDischargeSerializer(referral).data}, status=status.HTTP_201_CREATED)
+    return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET', 'PUT', 'PATCH'])
+@permission_classes([IsAuthenticated])
+def referral_detail_view(request, pk):
+    try:
+        referral = ReferralDischarge.objects.get(pk=pk)
+    except ReferralDischarge.DoesNotExist:
+        return Response({'success': False, 'message': 'Referral not found'}, status=status.HTTP_404_NOT_FOUND)
+    if request.method == 'GET':
+        return Response({'success': True, 'referral': ReferralDischargeSerializer(referral).data})
+    serializer = ReferralDischargeSerializer(referral, data=request.data, partial=True)
+    if serializer.is_valid():
+        serializer.save()
+        return Response({'success': True, 'referral': ReferralDischargeSerializer(referral).data})
+    return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def referral_delete_view(request, pk):
+    try:
+        ReferralDischarge.objects.get(pk=pk).delete()
+        return Response({'success': True, 'message': 'Referral deleted'})
+    except ReferralDischarge.DoesNotExist:
+        return Response({'success': False, 'message': 'Referral not found'}, status=status.HTTP_404_NOT_FOUND)

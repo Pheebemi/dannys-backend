@@ -169,3 +169,24 @@ class Patient(models.Model):
         return today.year - self.date_of_birth.year - (
             (today.month, today.day) < (self.date_of_birth.month, self.date_of_birth.day)
         )
+
+
+class ReferralDischarge(models.Model):
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name='referrals')
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='referrals_created')
+    date = models.DateField()
+    diagnosis = models.TextField(blank=True, null=True)
+    history = models.TextField(blank=True, null=True)
+    on_examination = models.TextField(blank=True, null=True)
+    course_in_hospital = models.TextField(blank=True, null=True)
+    advice_on_discharge = models.TextField(blank=True, null=True)
+    lab_scientist_name = models.CharField(max_length=200, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'referral_discharges'
+        ordering = ['-date', '-created_at']
+
+    def __str__(self):
+        return f"Referral for {self.patient.full_name} on {self.date}"

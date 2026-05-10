@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Patient, HMO
+from .models import Patient, HMO, ReferralDischarge
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
@@ -77,3 +77,30 @@ class PatientCreateSerializer(serializers.ModelSerializer):
         if data.get('patient_type') == 'retainership' and not data.get('hmo'):
             raise serializers.ValidationError({'hmo': 'HMO is required for Retainership patients.'})
         return data
+
+
+class ReferralDischargeSerializer(serializers.ModelSerializer):
+    patient_name = serializers.CharField(source='patient.full_name', read_only=True)
+    patient_age = serializers.SerializerMethodField()
+    patient_gender = serializers.CharField(source='patient.gender', read_only=True)
+    patient_address = serializers.CharField(source='patient.address', read_only=True)
+    created_by_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ReferralDischarge
+        fields = [
+            'id', 'patient', 'patient_name', 'patient_age', 'patient_gender', 'patient_address',
+            'created_by', 'created_by_name', 'date',
+            'diagnosis', 'history', 'on_examination',
+            'course_in_hospital', 'advice_on_discharge',
+            'lab_scientist_name', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['created_by', 'created_at', 'updated_at']
+
+    def get_patient_age(self, obj):
+        return obj.patient.age if obj.patient else None
+
+    def get_created_by_name(self, obj):
+        if obj.created_by:
+            return obj.created_by.full_name or obj.created_by.username
+        return None
