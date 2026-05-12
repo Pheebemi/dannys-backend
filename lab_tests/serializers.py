@@ -77,5 +77,5 @@ class LabTestUpdateSerializer(serializers.ModelSerializer):
         model = LabTest
         fields = (
             'status', 'performed_by', 'scheduled_date', 'completed_date',
-            'results', 'normal_range', 'notes', 'priority', 'cost'
+            'results', 'normal_range', 'notes', 'priority', 'cost', 'test_code'
         )
