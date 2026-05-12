@@ -81,7 +81,6 @@ class Invoice(models.Model):
                 last_num = int(last_invoice.invoice_number.split('-')[-1]) if '-' in last_invoice.invoice_number else 0
                 self.invoice_number = f"INV-{timezone.now().strftime('%Y%m%d')}-{last_num + 1:04d}"
             else:
-                from django.utils import timezone
                 self.invoice_number = f"INV-{timezone.now().strftime('%Y%m%d')}-0001"
         
         # Ensure all values are Decimal for calculations
