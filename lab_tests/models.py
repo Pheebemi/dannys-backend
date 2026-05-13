@@ -81,7 +81,8 @@ class LabTest(models.Model):
         ordering = ['-ordered_date']
     
     def __str__(self):
-        return f"{self.test_name} - {self.patient.full_name}"
+        name = self.patient.full_name if self.patient else (self.walk_in_name or 'Walk-in')
+        return f"{self.test_name} - {name}"
 
 
 class LabTestResult(models.Model):
