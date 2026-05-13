@@ -27,13 +27,19 @@ class LabTestResultSerializer(serializers.ModelSerializer):
 class LabTestSerializer(serializers.ModelSerializer):
     """Serializer for LabTest model"""
     patient_name = serializers.SerializerMethodField()
+    patient_email = serializers.SerializerMethodField()
+    patient_phone = serializers.SerializerMethodField()
 
     def get_patient_name(self, obj):
         if obj.patient:
             return obj.patient.full_name
         return obj.walk_in_name or 'Walk-in Patient'
-    patient_email = serializers.CharField(source='patient.email', read_only=True)
-    patient_phone = serializers.CharField(source='patient.phone_number', read_only=True)
+
+    def get_patient_email(self, obj):
+        return obj.patient.email if obj.patient else None
+
+    def get_patient_phone(self, obj):
+        return obj.patient.phone_number if obj.patient else None
     category_name = serializers.CharField(source='category.name', read_only=True)
     ordered_by_name = serializers.SerializerMethodField()
     performed_by_name = serializers.SerializerMethodField()
