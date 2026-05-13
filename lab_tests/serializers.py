@@ -26,7 +26,12 @@ class LabTestResultSerializer(serializers.ModelSerializer):
 
 class LabTestSerializer(serializers.ModelSerializer):
     """Serializer for LabTest model"""
-    patient_name = serializers.CharField(source='patient.full_name', read_only=True)
+    patient_name = serializers.SerializerMethodField()
+
+    def get_patient_name(self, obj):
+        if obj.patient:
+            return obj.patient.full_name
+        return obj.walk_in_name or 'Walk-in Patient'
     patient_email = serializers.CharField(source='patient.email', read_only=True)
     patient_phone = serializers.CharField(source='patient.phone_number', read_only=True)
     category_name = serializers.CharField(source='category.name', read_only=True)
@@ -37,7 +42,7 @@ class LabTestSerializer(serializers.ModelSerializer):
     class Meta:
         model = LabTest
         fields = (
-            'id', 'test_name', 'category', 'category_name', 'patient', 'patient_name',
+            'id', 'test_name', 'category', 'category_name', 'patient', 'patient_name', 'walk_in_name',
             'patient_email', 'patient_phone', 'ordered_by', 'ordered_by_name',
             'performed_by', 'performed_by_name', 'status', 'priority', 'test_code',
             'description', 'instructions', 'ordered_date', 'scheduled_date',
@@ -64,7 +69,7 @@ class LabTestCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = LabTest
         fields = (
-            'test_name', 'category', 'patient', 'ordered_by', 'priority',
+            'test_name', 'category', 'patient', 'walk_in_name', 'ordered_by', 'priority',
             'test_code', 'description', 'instructions', 'scheduled_date',
             'normal_range', 'notes', 'cost', 'price'
         )
