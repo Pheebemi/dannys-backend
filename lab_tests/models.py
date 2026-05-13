@@ -47,6 +47,7 @@ class LabTest(models.Model):
     category = models.ForeignKey(LabTestCategory, on_delete=models.PROTECT, related_name='tests')
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name='lab_tests', null=True, blank=True)
     walk_in_name = models.CharField(max_length=200, blank=True, null=True)
+    lab_order_ref = models.CharField(max_length=50, blank=True, null=True)
     ordered_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='ordered_tests')
     performed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='performed_tests')
     

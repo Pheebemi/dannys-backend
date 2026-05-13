@@ -522,3 +522,16 @@ def lab_test_stats_view(request):
         }
     }, status=status.HTTP_200_OK)
 
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def lab_order_group_view(request, ref):
+    """Fetch all lab tests sharing the same lab_order_ref."""
+    tests = LabTest.objects.filter(lab_order_ref=ref).order_by('ordered_date', 'created_at')
+    if request.user.role == 'patient':
+        try:
+            tests = tests.filter(patient=request.user.patient_profile)
+        except Exception:
+            tests = LabTest.objects.none()
+    serializer = LabTestSerializer(tests, many=True)
+    return Response({'success': True, 'tests': serializer.data})

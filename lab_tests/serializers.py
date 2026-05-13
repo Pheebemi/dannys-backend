@@ -53,7 +53,7 @@ class LabTestSerializer(serializers.ModelSerializer):
             'performed_by', 'performed_by_name', 'status', 'priority', 'test_code',
             'description', 'instructions', 'ordered_date', 'scheduled_date',
             'completed_date', 'results', 'normal_range', 'notes', 'cost',
-            'created_at', 'updated_at', 'test_results'
+            'lab_order_ref', 'created_at', 'updated_at', 'test_results'
         )
         read_only_fields = ('id', 'ordered_date', 'created_at', 'updated_at')
     
@@ -77,7 +77,7 @@ class LabTestCreateSerializer(serializers.ModelSerializer):
         fields = (
             'test_name', 'category', 'patient', 'walk_in_name', 'ordered_by', 'priority',
             'test_code', 'description', 'instructions', 'scheduled_date',
-            'normal_range', 'notes', 'cost', 'price'
+            'normal_range', 'notes', 'cost', 'price', 'lab_order_ref'
         )
 
 

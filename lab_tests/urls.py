@@ -14,5 +14,6 @@ urlpatterns = [
     path('categories/', views.lab_test_category_list_view, name='lab_test_categories'),
     path('categories/<int:pk>/', views.lab_test_category_detail_view, name='lab_test_category_detail'),
     path('stats/', views.lab_test_stats_view, name='lab_test_stats'),
+    path('order/<str:ref>/', views.lab_order_group_view, name='lab_order_group'),
 ]
 
